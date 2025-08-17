@@ -412,3 +412,188 @@ def compute_full_deriv(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8
         ]
 
     return derP
+
+
+def compute_deriv_alphas_gg(cosmo, BAO_only=False):
+
+    from scipy.interpolate import RegularGridInterpolator
+
+    order = 4
+    nmu = 100
+    dk = 0.0001
+    mu = np.linspace(0.0, 1.0, nmu)
+
+    pkarray = np.empty((2 * order + 1, len(cosmo.k)))
+    for i in range(-order, order + 1):
+        kinterp = cosmo.k + i * dk
+        if BAO_only:
+            pkarray[i + order] = splev(kinterp, cosmo.pk[0]) / splev(kinterp, cosmo.pksmooth[0])
+        else:
+            pkarray[i + order] = splev(kinterp, cosmo.pk[0])
+    derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
+    derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)), -np.outer(derPk * cosmo.k, (mu ** 2))]
+    derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
+
+    return derPalpha_interp
+
+def compute_deriv_alphas_gu(cosmo, f, b, BAO_only=False):
+
+    from scipy.interpolate import RegularGridInterpolator
+
+    order = 4
+    nmu = 100
+    dk = 0.0001
+    mu = np.linspace(0.0, 1.0, nmu)
+
+    factor=(b+f*mu**2)*f*mu**2/(b+f*mu**2)**2
+
+    pkarray = np.empty((2 * order + 1, len(cosmo.k)))
+    for i in range(-order, order + 1):
+        kinterp = cosmo.k + i * dk
+        if BAO_only:
+            pkarray[i + order] = splev(kinterp, cosmo.pk_linear[0]) / splev(kinterp, cosmo.pksmooth[0])
+        else:
+            pkarray[i + order] = splev(kinterp, cosmo.pk_linear[0])
+    derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
+    derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)*factor), -np.outer(derPk * cosmo.k, (mu ** 2)*factor)]
+    derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
+
+    return derPalpha_interp
+
+
+def compute_deriv_alphas_uu(cosmo, f, b, BAO_only=False):
+
+    from scipy.interpolate import RegularGridInterpolator
+
+    order = 4
+    nmu = 100
+    dk = 0.0001
+    mu = np.linspace(0.0, 1.0, nmu)
+
+    factor=(f*mu**2)**2/(b+f*mu**2)**2
+
+    pkarray = np.empty((2 * order + 1, len(cosmo.k)))
+    for i in range(-order, order + 1):
+        kinterp = cosmo.k + i * dk
+        if BAO_only:
+            pkarray[i + order] = splev(kinterp, cosmo.pk[0]) / splev(kinterp, cosmo.pksmooth[0])
+        else:
+            pkarray[i + order] = splev(kinterp, cosmo.pk[0])
+    derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
+    derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)*factor), -np.outer(derPk * cosmo.k, (mu ** 2)*factor)]
+    derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
+
+    return derPalpha_interp
+
+def compute_full_deriv_gg(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+
+    derP = np.zeros((npop + 3, npk))
+
+    # Derivatives of all power spectra w.r.t to the bsigma8 of each population
+    for i in range(npop):
+        derP[i, int(i * (npop + (1 - i) / 2))] = 2.0 * kaiser[i] * pk / sigma8
+        derP[i, int(i * (npop + (1 - i) / 2)) + 1 : int((i + 1) * (npop - i / 2))] = (
+            kaiser[i + 1 :] * pk / sigma8
+        )
+        for j in range(0, i):
+            derP[i, i + int(j * (npop - (1 + j) / 2))] = kaiser[j] * pk / sigma8
+
+    # Derivatives of all power spectra w.r.t fsigma8
+    derP[npop, :] = [
+        (kaiser[i] + kaiser[j]) * mu ** 2 * pk / sigma8 for i in range(npop) for j in range(i, npop)
+    ]
+
+    # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
+    if BAO_only:
+        # For BAO_only we only include information on the alpha parameters
+        # from the BAO wiggles, and not the Kaiser factor
+        derP[npop + 1, :] = [
+            kaiser[i] * kaiser[j] * derPalpha[0] * pksmooth for i in range(npop) for j in range(i, npop)
+        ]
+        derP[npop + 2, :] = [
+            kaiser[i] * kaiser[j] * derPalpha[1] * pksmooth for i in range(npop) for j in range(i, npop)
+        ]
+    else:
+        # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
+        dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2)
+
+        # We then just need use to the product rule as we already precomputed dP(k')/dalpha
+        derP[npop + 1, :] = [
+            (kaiser[i] + kaiser[j]) * f * pk * dmudalpha + kaiser[i] * kaiser[j] * derPalpha[0]
+            for i in range(npop)
+            for j in range(i, npop)
+        ]
+        derP[npop + 2, :] = [
+            -(kaiser[i] + kaiser[j]) * f * pk * dmudalpha + kaiser[i] * kaiser[j] * derPalpha[1]
+            for i in range(npop)
+            for j in range(i, npop)
+        ]
+
+    return derP
+
+def compute_full_deriv_gu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+    
+    derP = np.zeros((npop + 3, npk))
+
+    for i in range(npop):
+        derP[i,i]=f*mu**2*pk/sigma8 # wrt bi
+        derP[npop,i]=(kaiser[i]+f*mu**2)*mu**2*pk/sigma8 # wrt f
+
+    # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
+    if BAO_only:
+        # For BAO_only we only include information on the alpha parameters
+        # from the BAO wiggles, and not the Kaiser factor
+        derP[npop + 1, i] = [
+            kaiser[i] * kaiser[j] * derPalpha[0] * pksmooth for i in range(npop) for j in range(i, npop)
+        ]
+        derP[npop + 2, i] = [
+            kaiser[i] * kaiser[j] * derPalpha[1] * pksmooth for i in range(npop) for j in range(i, npop)
+        ]
+    else:
+        # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
+        dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2) # same for gu 
+
+        # We then just need use to the product rule as we already precomputed dP(k')/dalpha
+        derP[npop + 1, i] = [
+            f*pk*dmudalpha*(kaiser[i]+f)+kaiser[i]*f*mu**2*derPalpha[0]
+            for i in range(npop)
+        ]
+        derP[npop + 2, i] = [
+            f*pk*-dmudalpha*(kaiser[i]+f)+kaiser[i]*f*mu**2*derPalpha[1]
+            for i in range(npop)
+        ]
+
+    return derP
+
+def compute_full_deriv_uu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+
+    derP = np.zeros((npop + 3, npk))
+
+    # indexing is all space from gg 
+
+    # b is 0 so dont change it (auto set to 0)
+    derP[npop,0]=2*f*mu**4*pk/sigma8 # wrt f
+    
+    # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
+    if BAO_only:
+        # For BAO_only we only include information on the alpha parameters
+        # from the BAO wiggles, and not the Kaiser factor
+        derP[npop + 1, 0] = [
+            kaiser[i] * kaiser[j] * derPalpha[0] * pksmooth for i in range(npop) for j in range(i, npop)
+        ]
+        derP[npop + 2, 0] = [
+            kaiser[i] * kaiser[j] * derPalpha[1] * pksmooth for i in range(npop) for j in range(i, npop)
+        ]
+    else:
+        # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
+        dmudalpha = 4.0 * mu ** 4 * (1.0 - mu ** 2) # different bc mu 4
+
+        # We then just need use to the product rule as we already precomputed dP(k')/dalpha
+        derP[npop + 1, 0] = [
+            f**2*pk*dmudalpha+f**2*mu**4*derPalpha[0]
+        ]
+        derP[npop + 2, 0] = [
+            f**2*pk*-dmudalpha+f**2*mu**4*derPalpha[1]
+        ]
+
+    return derP
