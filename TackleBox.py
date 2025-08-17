@@ -518,17 +518,18 @@ def compute_full_deriv_gg(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2)
 
         # We then just need use to the product rule as we already precomputed dP(k')/dalpha
+        
         derP[npop + 1, :] = [
             (kaiser[i] + kaiser[j]) * f * pk * dmudalpha + kaiser[i] * kaiser[j] * derPalpha[0]
             for i in range(npop)
             for j in range(i, npop)
         ]
+        #print(derP[npop+1,:])
         derP[npop + 2, :] = [
             -(kaiser[i] + kaiser[j]) * f * pk * dmudalpha + kaiser[i] * kaiser[j] * derPalpha[1]
             for i in range(npop)
             for j in range(i, npop)
         ]
-
     return derP
 
 def compute_full_deriv_gu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
