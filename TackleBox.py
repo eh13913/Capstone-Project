@@ -451,9 +451,9 @@ def compute_deriv_alphas_gu(cosmo, f, b, BAO_only=False):
     for i in range(-order, order + 1):
         kinterp = cosmo.k + i * dk
         if BAO_only:
-            pkarray[i + order] = splev(kinterp, cosmo.pk_linear[0]) / splev(kinterp, cosmo.pksmooth[0])
+            pkarray[i + order] = splev(kinterp, cosmo.pk[0]) / splev(kinterp, cosmo.pksmooth[0])
         else:
-            pkarray[i + order] = splev(kinterp, cosmo.pk_linear[0])
+            pkarray[i + order] = splev(kinterp, cosmo.pk[0])
     derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
     derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)*factor), -np.outer(derPk * cosmo.k, (mu ** 2)*factor)]
     derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
@@ -538,7 +538,6 @@ def compute_full_deriv_gu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
     for i in range(npop):
         derP[i,i]=f*mu**2*pk/sigma8 # wrt bi
         derP[npop,i]=(kaiser[i]+f*mu**2)*mu**2*pk/sigma8 # wrt f
-
     # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
     if BAO_only:
         # For BAO_only we only include information on the alpha parameters
@@ -554,11 +553,11 @@ def compute_full_deriv_gu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2) # same for gu 
 
         # We then just need use to the product rule as we already precomputed dP(k')/dalpha
-        derP[npop + 1, i] = [
+        derP[npop + 1, :] = [
             f*pk*dmudalpha*(kaiser[i]+f)+kaiser[i]*f*mu**2*derPalpha[0]
             for i in range(npop)
         ]
-        derP[npop + 2, i] = [
+        derP[npop + 2, :] = [
             f*pk*-dmudalpha*(kaiser[i]+f)+kaiser[i]*f*mu**2*derPalpha[1]
             for i in range(npop)
         ]
@@ -589,10 +588,10 @@ def compute_full_deriv_uu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         dmudalpha = 4.0 * mu ** 4 * (1.0 - mu ** 2) # different bc mu 4
 
         # We then just need use to the product rule as we already precomputed dP(k')/dalpha
-        derP[npop + 1, 0] = [
+        derP[npop + 1, :] = [
             f**2*pk*dmudalpha+f**2*mu**4*derPalpha[0]
         ]
-        derP[npop + 2, 0] = [
+        derP[npop + 2, :] = [
             f**2*pk*-dmudalpha+f**2*mu**4*derPalpha[1]
         ]
 
