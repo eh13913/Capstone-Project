@@ -414,77 +414,6 @@ def compute_full_deriv(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8
     return derP
 
 
-def compute_deriv_alphas_gg(cosmo, BAO_only=False):
-
-    from scipy.interpolate import RegularGridInterpolator
-
-    order = 4
-    nmu = 100
-    dk = 0.0001
-    mu = np.linspace(0.0, 1.0, nmu)
-
-    pkarray = np.empty((2 * order + 1, len(cosmo.k)))
-    for i in range(-order, order + 1):
-        kinterp = cosmo.k + i * dk
-        if BAO_only:
-            pkarray[i + order] = splev(kinterp, cosmo.pk[0]) / splev(kinterp, cosmo.pksmooth[0])
-        else:
-            pkarray[i + order] = splev(kinterp, cosmo.pk[0])
-    derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
-    derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)), -np.outer(derPk * cosmo.k, (mu ** 2))]
-    derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
-
-    return derPalpha_interp
-
-def compute_deriv_alphas_gu(cosmo, f, b, BAO_only=False):
-
-    from scipy.interpolate import RegularGridInterpolator
-
-    order = 4
-    nmu = 100
-    dk = 0.0001
-    mu = np.linspace(0.0, 1.0, nmu)
-
-    factor=(b+f*mu**2)*f*mu**2/(b+f*mu**2)**2
-
-    pkarray = np.empty((2 * order + 1, len(cosmo.k)))
-    for i in range(-order, order + 1):
-        kinterp = cosmo.k + i * dk
-        if BAO_only:
-            pkarray[i + order] = splev(kinterp, cosmo.pk[0]) / splev(kinterp, cosmo.pksmooth[0])
-        else:
-            pkarray[i + order] = splev(kinterp, cosmo.pk[0])
-    derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
-    derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)*factor), -np.outer(derPk * cosmo.k, (mu ** 2)*factor)]
-    derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
-
-    return derPalpha_interp
-
-
-def compute_deriv_alphas_uu(cosmo, f, b, BAO_only=False):
-
-    from scipy.interpolate import RegularGridInterpolator
-
-    order = 4
-    nmu = 100
-    dk = 0.0001
-    mu = np.linspace(0.0, 1.0, nmu)
-
-    factor=(f*mu**2)**2/(b+f*mu**2)**2
-
-    pkarray = np.empty((2 * order + 1, len(cosmo.k)))
-    for i in range(-order, order + 1):
-        kinterp = cosmo.k + i * dk
-        if BAO_only:
-            pkarray[i + order] = splev(kinterp, cosmo.pk[0]) / splev(kinterp, cosmo.pksmooth[0])
-        else:
-            pkarray[i + order] = splev(kinterp, cosmo.pk[0])
-    derPk = FinDiff(0, dk, acc=4)(pkarray)[order]
-    derPalpha = [np.outer(derPk * cosmo.k, (mu ** 2 - 1.0)*factor), -np.outer(derPk * cosmo.k, (mu ** 2)*factor)]
-    derPalpha_interp = [RegularGridInterpolator([cosmo.k, mu], derPalpha[i]) for i in range(2)]
-
-    return derPalpha_interp
-
 def compute_full_deriv_gg(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
 
     derP = np.zeros((npop + 3, npk))
@@ -532,13 +461,17 @@ def compute_full_deriv_gg(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         ]
     return derP
 
-def compute_full_deriv_gu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+def compute_full_deriv_gu(k, aperp, apara, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
     
     derP = np.zeros((npop + 3, npk))
 
+    constval=1 #=iaH
+
+    #how do u write k into this function?
+
     for i in range(npop):
-        derP[i,i]=f*mu**2*pk/sigma8 # wrt bi
-        derP[npop,i]=(kaiser[i]+f*mu**2)*mu**2*pk/sigma8 # wrt f
+        derP[npop,i]=constval*mu*pk/k*(kaiser[i]+f*mu**2)/sigma8 # wrt f
+        derP[i,i]=constval*f*mu*pk/(k*sigma8) # wrt bi
     # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
     if BAO_only:
         # For BAO_only we only include information on the alpha parameters
@@ -551,28 +484,33 @@ def compute_full_deriv_gu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         ]
     else:
         # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
-        dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2) # same for gu 
+        ## i calculate this a different way now? alledgedly? dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2) # same for gu 
 
-        # We then just need use to the product rule as we already precomputed dP(k')/dalpha
+        dmudalpha=0 #function that returns dmu/dalpha for perp then para at different mu and k
+        dkdalpha=0 #function that returns dk/dalpha for perp then para at different mu and k
+        #perp
         derP[npop + 1, :] = [
-            f*pk*dmudalpha*(kaiser[i]+f)+kaiser[i]*f*mu**2*derPalpha[0]
+            constval*(f*pk*(kaiser[i]*(1/k*dmudalpha[0]-mu/k**2*dkdalpha[0])+2*f*mu**2/k*dmudalpha)+f*mu/k*kaiser[i]*derPalpha[0])
             for i in range(npop)
         ]
+
+        #para
         derP[npop + 2, :] = [
-            f*pk*-dmudalpha*(kaiser[i]+f)+kaiser[i]*f*mu**2*derPalpha[1]
+            constval*(f*pk*(kaiser[i]*(1/k*dmudalpha[1]-mu/k**2*dkdalpha[1])+2*f*mu**2/k*dmudalpha)+f*mu/k*kaiser[i]*derPalpha[1])
             for i in range(npop)
         ]
 
     return derP
 
-def compute_full_deriv_uu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+def compute_full_deriv_uu(k, aperp, apara, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
 
     derP = np.zeros((npop + 3, npk))
 
     # indexing is all space from gg 
 
+    constval=1 #a^2H^2
     # b is 0 so dont change it (auto set to 0)
-    derP[npop,0]=2*f*mu**4*pk/sigma8 # wrt f
+    derP[npop,0]=2*constval*f*mu**2*pk/(k**2*sigma8) # wrt f
     
     # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
     if BAO_only:
@@ -586,14 +524,28 @@ def compute_full_deriv_uu(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         ]
     else:
         # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
-        dmudalpha = 4.0 * mu ** 4 * (1.0 - mu ** 2) # different bc mu 4
+        # dont need this anymore dmudalpha = 4.0 * mu ** 4 * (1.0 - mu ** 2) # different bc mu 4
 
-        # We then just need use to the product rule as we already precomputed dP(k')/dalpha
+        dmudalpha=get_dmudalpha(k,mu,aperp,apara)
+        dkdalpha=get_dkdalpha(k,mu,aperp,apara)
+        #perp
         derP[npop + 1, :] = [
-            f**2*pk*dmudalpha+f**2*mu**4*derPalpha[0]
+            constval*(2*mu*f/k**2*(dmudalpha[0]-dkdalpha[0]*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
         ]
+
+        #para
         derP[npop + 2, :] = [
-            f**2*pk*-dmudalpha+f**2*mu**4*derPalpha[1]
+            constval*(2*mu*f/k**2*(dmudalpha[1]-dkdalpha[1]*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
         ]
 
     return derP
+
+def get_dmudalpha(k,mu,aperp,apara):
+    perpder = mu/apara*((1+mu**2*(aperp**2/apara**2-1))**(-1/2)-mu**2*aperp**2/apara**2(1+mu**2*(aperp**2/apara**2-1))**(-3/2))
+    parader = mu*aperp/apara**2*(mu**2*aperp**2/apara**2*(1+mu**2*(aperp**2/apara**2-1))**(-3/2)-(1+mu**2*(aperp**2/apara**2-1))**(-1/2))
+    return [perpder,parader]
+
+def get_dkdalpha(k,mu,aperp,apara):
+    perpder = k*(mu**2/apara**2*(1+mu**2(aperp**2/apara**2-1))**(-1/2)-1/aperp**2*(1+mu**2*(aperp**2/apara**2-1))**(1/2))
+    parader = -2*k*mu**2*aperp/apara**3*(1-u**2*(aperp**2/apara**2-1))**(1/2)
+    return [perpder,parader]
