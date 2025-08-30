@@ -461,7 +461,7 @@ def compute_full_deriv_gg(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sig
         ]
     return derP
 
-def compute_full_deriv_gu(k, aperp, apara, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+def compute_full_deriv_gu(k, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
     
     derP = np.zeros((npop + 3, npk))
 
@@ -484,25 +484,26 @@ def compute_full_deriv_gu(k, aperp, apara, npop, npk, kaiser, pk, pksmooth, mu, 
         ]
     else:
         # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
-        ## i calculate this a different way now? alledgedly? dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2) # same for gu 
+        muperpder = mu*(1-mu**2)
+        muparader = mu*(mu**2-1)
+        kperpder = k*(mu**2-1)
+        kparader = -k*mu**2
 
-        dmudalpha=0 #function that returns dmu/dalpha for perp then para at different mu and k
-        dkdalpha=0 #function that returns dk/dalpha for perp then para at different mu and k
         #perp
         derP[npop + 1, :] = [
-            constval*(f*pk*(kaiser[i]*(1/k*dmudalpha[0]-mu/k**2*dkdalpha[0])+2*f*mu**2/k*dmudalpha)+f*mu/k*kaiser[i]*derPalpha[0])
+            constval*(f*pk*(kaiser[i]*(1/k*muperpder-mu/k**2*kperpder)+2*f*mu**2/k*muperpder)+f*mu/k*kaiser[i]*derPalpha[0])
             for i in range(npop)
         ]
 
         #para
         derP[npop + 2, :] = [
-            constval*(f*pk*(kaiser[i]*(1/k*dmudalpha[1]-mu/k**2*dkdalpha[1])+2*f*mu**2/k*dmudalpha)+f*mu/k*kaiser[i]*derPalpha[1])
+            constval*(f*pk*(kaiser[i]*(1/k*muparader-mu/k**2*kparader)+2*f*mu**2/k*muparader)+f*mu/k*kaiser[i]*derPalpha[1])
             for i in range(npop)
         ]
 
     return derP
 
-def compute_full_deriv_uu(k, aperp, apara, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+def compute_full_deriv_uu(k, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
 
     derP = np.zeros((npop + 3, npk))
 
@@ -525,27 +526,17 @@ def compute_full_deriv_uu(k, aperp, apara, npop, npk, kaiser, pk, pksmooth, mu, 
     else:
         # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
         # dont need this anymore dmudalpha = 4.0 * mu ** 4 * (1.0 - mu ** 2) # different bc mu 4
+        muperpder = mu*(1-mu**2)
+        muparader = mu*(mu**2-1)
 
-        dmudalpha=get_dmudalpha(k,mu,aperp,apara)
-        dkdalpha=get_dkdalpha(k,mu,aperp,apara)
         #perp
         derP[npop + 1, :] = [
-            constval*(2*mu*f/k**2*(dmudalpha[0]-dkdalpha[0]*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
+            constval*(2*mu*f/k**2*(muperpder-muperpder*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
         ]
 
         #para
         derP[npop + 2, :] = [
-            constval*(2*mu*f/k**2*(dmudalpha[1]-dkdalpha[1]*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
+            constval*(2*mu*f/k**2*(muparader-muparader*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
         ]
 
     return derP
-
-def get_dmudalpha(k,mu,aperp,apara):
-    perpder = mu/apara*((1+mu**2*(aperp**2/apara**2-1))**(-1/2)-mu**2*aperp**2/apara**2(1+mu**2*(aperp**2/apara**2-1))**(-3/2))
-    parader = mu*aperp/apara**2*(mu**2*aperp**2/apara**2*(1+mu**2*(aperp**2/apara**2-1))**(-3/2)-(1+mu**2*(aperp**2/apara**2-1))**(-1/2))
-    return [perpder,parader]
-
-def get_dkdalpha(k,mu,aperp,apara):
-    perpder = k*(mu**2/apara**2*(1+mu**2(aperp**2/apara**2-1))**(-1/2)-1/aperp**2*(1+mu**2*(aperp**2/apara**2-1))**(1/2))
-    parader = -2*k*mu**2*aperp/apara**3*(1-u**2*(aperp**2/apara**2-1))**(1/2)
-    return [perpder,parader]
