@@ -494,6 +494,9 @@ def compute_full_deriv_gu(k, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, 
             constval*(f*pk*(kaiser[i]*(1/k*muperpder-mu/k**2*kperpder)+2*f*mu**2/k*muperpder)+f*mu/k*kaiser[i]*derPalpha[0])
             for i in range(npop)
         ]
+        for i in range(npop):
+            print(mu,k,derPalpha[0])
+            print(f*pk*(kaiser[i]*(1/k*muperpder-mu/k**2*kperpder)),f*pk*(2*f*mu**2/k*muperpder),f*mu/k*kaiser[i]*derPalpha[0])
 
         #para
         derP[npop + 2, :] = [
