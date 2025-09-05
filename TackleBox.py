@@ -465,3 +465,18 @@ def get_full_deriv(k, mu, pk, kaiser, f, z, H, derPalpha, sigma8):
     derP[2][3]=aH**2*(2*mu*f/k**2*(muparader-muparader*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
 
     return derP # returns 3 x 4 array with pgg pgu puu derivs wrt the four ones we need
+
+def get_inv_cov(pgg, pgu, puu, nbar):
+
+    covariance =np.zeros((3,3))
+    covariance[0][0]=2*(pgg+1/nbar)**2
+    covariance[1][1]=pgg*puu+pgu**2
+    covariance[2][2]=2*(puu+1/nbar)**2
+    covariance[0][1]=covariance[1][0]=2*pgg*pgu
+    covariance[0][2]=covariance[2][0]=2*pgu*pgu
+    covariance[1][2]=covariance[2][1]=2*pgg*puu
+
+    #identity = np.eye(npk)
+    #cov_inv = dgesv(covariance, identity)[2]
+
+    return covariance, cov_inv
