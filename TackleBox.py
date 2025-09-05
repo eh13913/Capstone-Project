@@ -413,133 +413,55 @@ def compute_full_deriv(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8
 
     return derP
 
+### ------------------------------- NEW FUNCTIONS ------------------------------- ###
 
-def compute_full_deriv_gg(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+# returns the values for Pgg Pgu Puu at a k, mu value.
+def get_powerfx(k, mu, pk, kaiser, f, z, H):
 
-    derP = np.zeros((npop + 3, npk))
+    # get aH
+    aH = 1/(1+z)*H
 
-    # Derivatives of all power spectra w.r.t to the bsigma8 of each population
-    for i in range(npop):
-        derP[i, int(i * (npop + (1 - i) / 2))] = 2.0 * kaiser[i] * pk / sigma8
-        derP[i, int(i * (npop + (1 - i) / 2)) + 1 : int((i + 1) * (npop - i / 2))] = (
-            kaiser[i + 1 :] * pk / sigma8
-        )
-        for j in range(0, i):
-            derP[i, i + int(j * (npop - (1 + j) / 2))] = kaiser[j] * pk / sigma8
-
-    # Derivatives of all power spectra w.r.t fsigma8
-    derP[npop, :] = [
-        (kaiser[i] + kaiser[j]) * mu ** 2 * pk / sigma8 for i in range(npop) for j in range(i, npop)
-    ]
-
-    # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
-    if BAO_only:
-        # For BAO_only we only include information on the alpha parameters
-        # from the BAO wiggles, and not the Kaiser factor
-        derP[npop + 1, :] = [
-            kaiser[i] * kaiser[j] * derPalpha[0] * pksmooth for i in range(npop) for j in range(i, npop)
-        ]
-        derP[npop + 2, :] = [
-            kaiser[i] * kaiser[j] * derPalpha[1] * pksmooth for i in range(npop) for j in range(i, npop)
-        ]
-    else:
-        # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
-        dmudalpha = 2.0 * mu ** 2 * (1.0 - mu ** 2)
-
-        # We then just need use to the product rule as we already precomputed dP(k')/dalpha
-        
-        derP[npop + 1, :] = [
-            (kaiser[i] + kaiser[j]) * f * pk * dmudalpha + kaiser[i] * kaiser[j] * derPalpha[0]
-            for i in range(npop)
-            for j in range(i, npop)
-        ]
-        #print(derP[npop+1,:])
-        derP[npop + 2, :] = [
-            -(kaiser[i] + kaiser[j]) * f * pk * dmudalpha + kaiser[i] * kaiser[j] * derPalpha[1]
-            for i in range(npop)
-            for j in range(i, npop)
-        ]
-    return derP
-
-def compute_full_deriv_gu(k, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+    # compute values
+    Pgg = kaiser**2*pk
+    Pgu = aH*f*mu/k*kaiser*pk
+    Puu = (aH*f*mu/k)**2*pk
     
-    derP = np.zeros((npop + 3, npk))
+    return [Pgg, Pgu, Puu] # returns array of three values
 
-    constval=1 #=iaH
+# gets the derivative for Pgg, Pgu, Puu wrt b, f, aperp and apara at a specific mu and k
+# has no BAO only here (for now :D)
+def get_full_deriv(k, mu, pk, kaiser, f, z, H, derPalpha, sigma8):
 
-    #how do u write k into this function?
+    # rows are Ps, columns are b f aperp apara
+    derP = np.zeros((3,4)) 
 
-    for i in range(npop):
-        derP[npop,i]=constval*mu*pk/k*(kaiser[i]+f*mu**2)/sigma8 # wrt f
-        derP[i,i]=constval*f*mu*pk/(k*sigma8) # wrt bi
-    # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
-    if BAO_only:
-        # For BAO_only we only include information on the alpha parameters
-        # from the BAO wiggles, and not the Kaiser factor
-        derP[npop + 1, i] = [
-            kaiser[i] * kaiser[j] * derPalpha[0] * pksmooth for i in range(npop) for j in range(i, npop)
-        ]
-        derP[npop + 2, i] = [
-            kaiser[i] * kaiser[j] * derPalpha[1] * pksmooth for i in range(npop) for j in range(i, npop)
-        ]
-    else:
-        # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
-        muperpder = mu*(1-mu**2)
-        muparader = mu*(mu**2-1)
-        kperpder = k*(mu**2-1)
-        kparader = -k*mu**2
+    # mu and k derivs wrt alpha
+    muperpder = mu*(1-mu**2)
+    muparader = mu*(mu**2-1)
+    kperpder = k*(mu**2-1)
+    kparader = -k*mu**2
 
-        #perp
-        derP[npop + 1, :] = [
-            constval*(f*pk*(kaiser[i]*(1/k*muperpder-mu/k**2*kperpder)+2*f*mu**2/k*muperpder)+f*mu/k*kaiser[i]*derPalpha[0])
-            for i in range(npop)
-        ]
-        for i in range(npop):
-            print(mu,k,derPalpha[0])
-            print(f*pk*(kaiser[i]*(1/k*muperpder-mu/k**2*kperpder)),f*pk*(2*f*mu**2/k*muperpder),f*mu/k*kaiser[i]*derPalpha[0])
+    # get aH
+    aH = 1/(1+z)*H
 
-        #para
-        derP[npop + 2, :] = [
-            constval*(f*pk*(kaiser[i]*(1/k*muparader-mu/k**2*kparader)+2*f*mu**2/k*muparader)+f*mu/k*kaiser[i]*derPalpha[1])
-            for i in range(npop)
-        ]
+    # wrt b
+    derP[0][0]=2*kaiser*pk/sigma8
+    derP[1][0]=aH*f*mu*pk/(k*sigma8)
+    # dont need to set a value for Puu since its 0
 
-    return derP
+    # wrt f
+    derP[0][1]=2*mu**2*kaiser*pk/sigma8
+    derP[1][1]=aH*mu*pk/k*(kaiser+f*mu**2)/sigma8
+    derP[2][1]=2*f*(aH*mu/k)**2*pk/sigma8
 
-def compute_full_deriv_uu(k, npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8, BAO_only):
+    # wrt aperp
+    derP[0][2]=4*mu*f*kaiser*pk*muperpder+kaiser**2*derPalpha[0]
+    derP[1][2]=aH*(f*pk*(kaiser*(1/k*muperpder-mu/k**2*kperpder)+2*f*mu**2/k*muperpder)+f*mu/k*kaiser*derPalpha[0])
+    derP[2][2]=aH**2*(2*mu*f/k**2*(muperpder-muperpder*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
 
-    derP = np.zeros((npop + 3, npk))
+    # wrt apara
+    derP[0][3]=4*mu*f*kaiser*pk*muparader+kaiser**2*derPalpha[1]
+    derP[1][3]=aH*(f*pk*(kaiser*(1/k*muparader-mu/k**2*kparader)+2*f*mu**2/k*muparader)+f*mu/k*kaiser*derPalpha[1])
+    derP[2][3]=aH**2*(2*mu*f/k**2*(muparader-muparader*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
 
-    # indexing is all space from gg 
-
-    constval=1 #a^2H^2
-    # b is 0 so dont change it (auto set to 0)
-    derP[npop,0]=2*constval*f*mu**2*pk/(k**2*sigma8) # wrt f
-    
-    # Derivatives of all power spectra w.r.t the alphas centred on alpha_per = alpha_par = 1.0
-    if BAO_only:
-        # For BAO_only we only include information on the alpha parameters
-        # from the BAO wiggles, and not the Kaiser factor
-        derP[npop + 1, 0] = [
-            kaiser[i] * kaiser[j] * derPalpha[0] * pksmooth for i in range(npop) for j in range(i, npop)
-        ]
-        derP[npop + 2, 0] = [
-            kaiser[i] * kaiser[j] * derPalpha[1] * pksmooth for i in range(npop) for j in range(i, npop)
-        ]
-    else:
-        # Derivative of mu'**2 w.r.t alpha_perp. Derivative w.r.t. alpha_par is -dmudalpha
-        # dont need this anymore dmudalpha = 4.0 * mu ** 4 * (1.0 - mu ** 2) # different bc mu 4
-        muperpder = mu*(1-mu**2)
-        muparader = mu*(mu**2-1)
-
-        #perp
-        derP[npop + 1, :] = [
-            constval*(2*mu*f/k**2*(muperpder-muperpder*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
-        ]
-
-        #para
-        derP[npop + 2, :] = [
-            constval*(2*mu*f/k**2*(muparader-muparader*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
-        ]
-
-    return derP
+    return derP # returns 3 x 4 array with pgg pgu puu derivs wrt the four ones we need
