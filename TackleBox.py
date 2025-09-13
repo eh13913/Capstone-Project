@@ -466,21 +466,16 @@ def get_full_deriv(k, mu, pk, kaiser, f, z, H, derPalpha, sigma8):
 
     return derP # returns 3 x 4 array with pgg pgu puu derivs wrt the four ones we need
 
-def get_inv_cov(pgg, pgu, puu, nbar):
-
+def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr, dist):
+    #pverr**2/vbar
     covariance=np.zeros((3,3))
     covariance[0][0]=2*(pgg+1/nbar)**2
-    covariance[1][1]=(pgg+1/nbar)*(puu+1/nbar)+pgu**2
-    covariance[2][2]=2*(puu+1/nbar)**2
+    covariance[1][1]=(pgg+1/nbar)*(puu+pverr**2/vbar)+pgu**2
+    covariance[2][2]=2*(puu+pverr**2/vbar)**2
     covariance[0][1]=covariance[1][0]=2*(pgg+1/nbar)*pgu
     covariance[0][2]=covariance[2][0]=2*pgu*pgu
-    covariance[1][2]=covariance[2][1]=2*pgu*(puu+1/nbar) #<- use (100 * distance to center bin * err_PV)^2/nz_PV
-
+    covariance[1][2]=covariance[2][1]=2*pgu*(puu+pverr**2/vbar)
     identity = np.eye(3)
     cov_inv = dgesv(covariance, identity)[2]
 
-    return covariance, cov_inv #make plots of cov matrices themselves, fix val of mu, plot as function of k the cov matrices. -> 3 plots DONE
-# plot sqrt of cov[0,0] for 4 diff mus, same for cov[1,1] and 22. Errorbars on pgg, pgu puu, then u can plot w errorbars -> 3 plots DONE
-# plot correlation coeff Cij/sqrt(Cii*Cjj) (for all combos 0 1 2) -> how correlated at same k mode how Pgg and Pgu correl. -> 3 plots DONE
-# modify code to read in new values, then ubdate nbar and see what happens
-# integrating over mu, gifs
+    return covariance, cov_inv
