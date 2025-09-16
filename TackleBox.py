@@ -264,7 +264,7 @@ def CastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
 
             covP, cov_inv = compute_inv_cov(npop, npk, kaiser[:, j], pkval[i], data.nbar[:, iz])
 
-            Shoal[:, :, i, j] = kval ** 2 * (derP @ cov_inv @ derP.T) * Dfactor[j, i] ** 2 ##4,4,i,j
+            Shoal[:, :, i, j] = kval ** 2 * (derP @ cov_inv @ derP.T) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines!
 
     return Shoal
 
@@ -466,8 +466,8 @@ def get_full_deriv(k, mu, pk, kaiser, f, z, H, derPalpha, sigma8):
 
     return derP # returns 3 x 4 array with pgg pgu puu derivs wrt the four ones we need
 
-def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr, dist):
-    #pverr**2/vbar
+def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr):
+
     covariance=np.zeros((3,3))
     covariance[0][0]=2*(pgg+1/nbar)**2
     covariance[1][1]=(pgg+1/nbar)*(puu+pverr**2/vbar)+pgu**2
@@ -478,4 +478,9 @@ def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr, dist):
     identity = np.eye(3)
     cov_inv = dgesv(covariance, identity)[2]
 
+    # this is inversed!! k**2 * cosmo.volume[iz] delta k / (2.0 * np.pi ** 2) -> add to this!! and k**2
+    # fix up!!
+    # covariance/p**2 for off terms do 01 02
+    # make nz_PV smol
+    
     return covariance, cov_inv
