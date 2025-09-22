@@ -108,6 +108,7 @@ if __name__ == "__main__":
                     errs[2],
                     erralpha[iz],
                 )
+                #z  V(Gpc/h)^3  fsigma8  fsigma8_err(%)  Da(Mpc/h)  Da_err(%)  H(km/s/Mpc)  H_err(%)   alpha_err(%)"
             )
 
             # Output the fisher matrix for the redshift bin

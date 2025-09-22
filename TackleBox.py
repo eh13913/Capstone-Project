@@ -138,11 +138,9 @@ def Fish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True, GoFast=Fa
 
     # Uses Simpson's rule or adaptive quadrature to integrate over all k and mu.
     if GoFast:
-
         # mu and k values for Simpson's rule
         muvec = np.linspace(0.0, 1.0, 100)
         kvec = np.linspace(kmin, kmax, 400)
-
         # 2D integration
         ManyFish = simps(
             simps(
@@ -218,9 +216,7 @@ def CastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
         as the derivatives are returned [b_0*sigma8 ... b_npop*sigma8], fsigma8, alpha_perp, alpha_par for each k
         and mu value. Has shape (npop + 3, npop + 3, len(k), len(mu))
     """
-
     Shoal = np.empty((npop + 3, npop + 3, len(k), len(mu)))
-
     # Compute the kaiser factors for each galaxy sample at the redshift as a function of mu
     kaiser = np.tile(data.bias[:, iz], (len(mu), 1)).T + cosmo.f[iz] * mu ** 2
 
@@ -252,7 +248,7 @@ def CastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
             derP = compute_full_deriv(
                 npop,
                 npk,
-                kaiser[:, j],
+                kaiser[:, j], #,
                 pkval[i],
                 pksmoothval[i],
                 muval,
@@ -370,7 +366,6 @@ def compute_full_deriv(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8
     """
 
     derP = np.zeros((npop + 3, npk))
-
     # Derivatives of all power spectra w.r.t to the bsigma8 of each population
     for i in range(npop):
         derP[i, int(i * (npop + (1 - i) / 2))] = 2.0 * kaiser[i] * pk / sigma8
@@ -411,6 +406,7 @@ def compute_full_deriv(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8
             for j in range(i, npop)
         ]
 
+
     return derP
 
 ### ------------------------------- NEW FUNCTIONS ------------------------------- ###
@@ -430,7 +426,7 @@ def get_powerfx(k, mu, pk, kaiser, f, z, H):
 
 # gets the derivative for Pgg, Pgu, Puu wrt b, f, aperp and apara at a specific mu and k
 # has no BAO only here (for now :D)
-def get_full_deriv(k, mu, pk, kaiser, f, z, H, derPalpha, sigma8):
+def get_full_deriv(k, mu, pk, pksmooth, kaiser, f, z, H, derPalpha, sigma8, BAO_only=True):
 
     # rows are Ps, columns are b f aperp apara
     derP = np.zeros((3,4)) 
@@ -454,19 +450,117 @@ def get_full_deriv(k, mu, pk, kaiser, f, z, H, derPalpha, sigma8):
     derP[1][1]=aH*mu*pk/k*(kaiser+f*mu**2)/sigma8
     derP[2][1]=2*f*(aH*mu/k)**2*pk/sigma8
 
-    # wrt aperp
-    derP[0][2]=4*mu*f*kaiser*pk*muperpder+kaiser**2*derPalpha[0]
-    derP[1][2]=aH*(f*pk*(kaiser*(1/k*muperpder-mu/k**2*kperpder)+2*f*mu**2/k*muperpder)+f*mu/k*kaiser*derPalpha[0])
-    derP[2][2]=aH**2*(2*mu*f/k**2*(muperpder-muperpder*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
+    if BAO_only==True:
+        derP[0][2]=kaiser**2*pksmooth*derPalpha[0]
+        derP[1][2]=kaiser*aH*pksmooth*derPalpha[0]
+        derP[2][2]=aH**2*pksmooth*derPalpha[0]
 
-    # wrt apara
-    derP[0][3]=4*mu*f*kaiser*pk*muparader+kaiser**2*derPalpha[1]
-    derP[1][3]=aH*(f*pk*(kaiser*(1/k*muparader-mu/k**2*kparader)+2*f*mu**2/k*muparader)+f*mu/k*kaiser*derPalpha[1])
-    derP[2][3]=aH**2*(2*mu*f/k**2*(muparader-muparader*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
+        derP[0][3]=kaiser**2*pksmooth*derPalpha[1]
+        derP[1][3]=kaiser*aH*pksmooth*derPalpha[1]
+        derP[2][3]=aH**2*pksmooth*derPalpha[1]
+    else:
+        # wrt aperp
+        derP[0][2]=4*mu*f*kaiser*pk*muperpder+kaiser**2*derPalpha[0]
+        derP[1][2]=aH*(f*pk*(kaiser*(1/k*muperpder-mu/k**2*kperpder)+2*f*mu**2/k*muperpder)+f*mu/k*kaiser*derPalpha[0])
+        derP[2][2]=aH**2*(2*mu*f/k**2*(muperpder-muperpder*mu/k)*pk+f*mu**2/k**2*derPalpha[0])
+
+        # wrt apara
+        derP[0][3]=4*mu*f*kaiser*pk*muparader+kaiser**2*derPalpha[1]
+        derP[1][3]=aH*(f*pk*(kaiser*(1/k*muparader-mu/k**2*kparader)+2*f*mu**2/k*muparader)+f*mu/k*kaiser*derPalpha[1])
+        derP[2][3]=aH**2*(2*mu*f/k**2*(muparader-muparader*mu/k)*pk+f*mu**2/k**2*derPalpha[1])
 
     return derP # returns 3 x 4 array with pgg pgu puu derivs wrt the four ones we need
 
-def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr):
+def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr, kval, vol, dk):
+
+    covariance=np.zeros((3,3))
+    factor=(2*np.pi**2)/(vol*kval**2*dk)
+    covariance[0][0]=2*(pgg+1/nbar)**2
+    covariance[1][1]=(pgg+1/nbar)*(puu+pverr**2/vbar)+pgu**2
+    covariance[2][2]=2*(puu+pverr**2/vbar)**2
+    covariance[0][1]=covariance[1][0]=2*(pgg+1/nbar)*pgu
+    covariance[0][2]=covariance[2][0]=2*pgu*pgu
+    covariance[1][2]=covariance[2][1]=2*pgu*(puu+pverr**2/vbar)
+    covariance=covariance*factor
+    identity = np.eye(3)
+    cov_inv = dgesv(covariance, identity)[2]
+
+    # this is inversed!! k**2 * cosmo.volume[iz] delta k / (2.0 * np.pi ** 2) -> add to this!! and k**2
+    # fix up!!
+    # covariance/p**2 for off terms do 01 02
+    # make nz_PV smol
+    
+    return covariance, cov_inv
+
+def get_dfactor(mu,k,recon,sigpar,sigperp):
+    Dpar = np.outer(mu ** 2, k ** 2) * sigpar ** 2
+    Dperp = np.outer(1.0 - mu ** 2, k ** 2) * sigperp ** 2
+    Dfactor = np.exp(-(recon ** 2) * (Dpar + Dperp) / 2.0)
+    return Dfactor
+
+def newFish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True, GoFast=True):
+
+    npop = np.shape(data.nbar)[0]
+    npk = int(npop * (npop + 1) / 2)
+
+    # Uses Simpson's rule or adaptive quadrature to integrate over all k and mu.
+    if GoFast:
+        # mu and k values for Simpson's rule
+        muvec = np.linspace(0.0, 1.0, 100)
+        kvec = np.linspace(kmin, kmax, 400)
+        # 2D integration
+        ManyFish = simps(
+            simps(
+                newCastNet(muvec, kvec, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only), x=muvec, axis=-1
+            ),
+            x=kvec,
+            axis=-1,
+        )
+
+    # Multiply by the necessary prefactors
+    ManyFish *= cosmo.volume[iz] / (2.0 * np.pi ** 2)
+
+    return ManyFish
+
+def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
+
+    Shoal = np.empty((npop + 3, npop + 3, len(k), len(mu)))
+    # Compute the kaiser factors for each galaxy sample at the redshift as a function of mu
+    kaiser = (np.tile(data.bias[:, iz], (len(mu), 1)).T + cosmo.f[iz] * mu ** 2)[0]
+
+    # Compute the BAO damping factor parameter after reconstruction at the redshift of interest
+    # as a function of k and mu.
+    Dpar = np.outer(mu ** 2, k ** 2) * cosmo.Sigma_par[iz] ** 2
+    Dperp = np.outer(1.0 - mu ** 2, k ** 2) * cosmo.Sigma_perp[iz] ** 2
+    Dfactor = np.exp(-(recon ** 2) * (Dpar + Dperp) / 2.0)
+
+    # Use our splines to compute the power spectrum and derivatives at the redshift as a function of k and mu.
+    # To save space we only stored the derivatives at redshift 0, but now scale these to the correct redshift
+    # using the ratio of sigma8 values, which is okay to do as the power spectra are all linear. Note this scaling
+    # is only necessary for full shape fits, the BAO wiggles do not get scaled by the sigma8 ratio.
+    pkval = splev(k, cosmo.pk[iz])
+    pksmoothval = splev(k, cosmo.pksmooth[iz])
+    coords = [[kval, muval] for kval in k for muval in mu]
+    if BAO_only:
+        derPalphaval = [derPalpha[i](coords).reshape(len(k), len(mu)) for i in range(2)]
+    else:
+        derPalphaval = [
+            derPalpha[i](coords).reshape(len(k), len(mu)) * (cosmo.sigma8[iz] / cosmo.sigma8[0]) ** 2
+            for i in range(2)
+        ]
+    derPalphaval=np.array(derPalphaval)
+    # Loop over each k and mu value and compute the Fisher information for the cosmological parameters
+    for i, kval in enumerate(k):
+        for j, muval in enumerate(mu):
+            fval,zval,hval,sigmaval=cosmo.f[0],cosmo.z[0],cosmo.h[0],cosmo.sigma8[0]
+            vals=get_powerfx(kval,muval,pkval[i],kaiser[j],fval,zval,hval)
+            derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
+            covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar,data.nbarz,data.pverr) 
+            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines!
+
+    return Shoal
+
+def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr):
 
     covariance=np.zeros((3,3))
     covariance[0][0]=2*(pgg+1/nbar)**2
@@ -477,10 +571,5 @@ def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr):
     covariance[1][2]=covariance[2][1]=2*pgu*(puu+pverr**2/vbar)
     identity = np.eye(3)
     cov_inv = dgesv(covariance, identity)[2]
-
-    # this is inversed!! k**2 * cosmo.volume[iz] delta k / (2.0 * np.pi ** 2) -> add to this!! and k**2
-    # fix up!!
-    # covariance/p**2 for off terms do 01 02
-    # make nz_PV smol
     
     return covariance, cov_inv

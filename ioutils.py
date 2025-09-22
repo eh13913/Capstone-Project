@@ -12,7 +12,8 @@ class InputData:
 
         self.zmin = df[" zmin"].to_numpy()
         self.zmax = df["zmax"].to_numpy()
-        self.nz = np.array([df[i] for i in df.keys() if "nz" in i])
+        self.nz = np.array([df[i] for i in df.keys() if "nz_BGS" in i])
+        self.nzn = np.array([df[i] for i in df.keys() if "nz_PV" in i])
         self.bias = np.array([df[i] for i in df.keys() if "bias" in i])
         self.volume = df["volume"].to_numpy() if "volume" in df.keys() else -np.ones(len(df))
         self.pverr = np.array([df[i] for i in df.keys() if "err" in i])
@@ -60,6 +61,7 @@ class InputData:
 
         dz = self.zmax - self.zmin
         self.nbar = skyarea * self.nz * (dz / volume)
+        self.nbarz = skyarea * self.nzn * (dz / volume)
 
     def scale_bias(self, growth):
         self.bias /= growth
