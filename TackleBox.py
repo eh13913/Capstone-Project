@@ -524,7 +524,7 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
 
     Shoal = np.empty((npop + 3, npop + 3, len(k), len(mu)))
     # Compute the kaiser factors for each galaxy sample at the redshift as a function of mu
-    kaiser = (np.tile(data.bias[:, iz], (len(mu), 1)).T + cosmo.f[iz] * mu ** 2)[0]
+    kaiser = (np.tile(data.bias[:, iz], (len(mu), 1)).T + cosmo.f[iz] * mu ** 2)
 
     # Compute the BAO damping factor parameter after reconstruction at the redshift of interest
     # as a function of k and mu.
@@ -550,9 +550,9 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
     # Loop over each k and mu value and compute the Fisher information for the cosmological parameters
     for i, kval in enumerate(k):
         for j, muval in enumerate(mu):
-            fval,zval,hval,sigmaval=cosmo.f[0],cosmo.z[0],cosmo.h[0],cosmo.sigma8[0]
-            vals=get_powerfx(kval,muval,pkval[i],kaiser[j],fval,zval,hval)
-            derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
+            fval,zval,hval,sigmaval=cosmo.f[iz],cosmo.z[iz],cosmo.h[iz],cosmo.sigma8[iz]
+            vals=get_powerfx(kval,muval,pkval[i],kaiser[:,j],fval,zval,hval)
+            derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[:,j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
             covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,0],data.nbarz[0,0],data.pverr[0,0],cosmo.da[0],hval)  #(km/sec)**2 * vol
             Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines! # power spectrum units are volume!
     return Shoal
