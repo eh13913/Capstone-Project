@@ -258,6 +258,7 @@ def CastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
                 BAO_only,
             )
             covP, cov_inv = compute_inv_cov(npop, npk, kaiser[:, j], pkval[i], data.nbar[:, iz])
+            print(cov_inv)
             Shoal[:, :, i, j] = kval ** 2 * (derP @ cov_inv @ derP.T) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines!
 
     return Shoal
@@ -553,7 +554,8 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
             fval,zval,hval,sigmaval=cosmo.f[iz],cosmo.z[iz],cosmo.h[iz],cosmo.sigma8[iz]
             vals=get_powerfx(kval,muval,pkval[i],kaiser[:,j],fval,zval,hval)
             derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[:,j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
-            covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,0],data.nbarz[0,0],data.pverr[0,0],cosmo.da[0],hval)  #(km/sec)**2 * vol
+            covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)  #(km/sec)**2 * vol
+            #print(cov_inv[0,0],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)
             Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines! # power spectrum units are volume!
     return Shoal
 
