@@ -258,7 +258,6 @@ def CastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
                 BAO_only,
             )
             covP, cov_inv = compute_inv_cov(npop, npk, kaiser[:, j], pkval[i], data.nbar[:, iz])
-            print(cov_inv)
             Shoal[:, :, i, j] = kval ** 2 * (derP @ cov_inv @ derP.T) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines!
 
     return Shoal
@@ -470,26 +469,20 @@ def get_full_deriv(k, mu, pk, pksmooth, kaiser, f, z, H, derPalpha, sigma8, BAO_
 
     return derP # returns 3 x 4 array with pgg pgu puu derivs wrt the four ones we need
 
-def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr, kval, vol, dk):
-
-    covariance=np.zeros((3,3))
+def get_inv_cov(pgg, pgu, puu, nbar, vbar, pverr, kval, vol, da, H, dk=1):
     factor=(2*np.pi**2)/(vol*kval**2*dk)
+    covariance=np.zeros((3,3))
+    ps=pverr*da*H
     covariance[0][0]=2*(pgg+1/nbar)**2
-    covariance[1][1]=(pgg+1/nbar)*(puu+pverr**2/vbar)+pgu**2
-    covariance[2][2]=2*(puu+pverr**2/vbar)**2
+    covariance[1][1]=(pgg+1/nbar)*(puu+ps**2/vbar)+pgu**2
+    covariance[2][2]=2*(puu+ps**2/vbar)**2
     covariance[0][1]=covariance[1][0]=2*(pgg+1/nbar)*pgu
     covariance[0][2]=covariance[2][0]=2*pgu*pgu
-    covariance[1][2]=covariance[2][1]=2*pgu*(puu+pverr**2/vbar)
-    covariance=covariance*factor
+    covariance[1][2]=covariance[2][1]=2*pgu*(puu+ps**2/vbar)
+    covariance*=factor
     identity = np.eye(3)
     cov_inv = dgesv(covariance, identity)[2]
-
-    # this is inversed!! k**2 * cosmo.volume[iz] delta k / (2.0 * np.pi ** 2) -> add to this!! and k**2
-    # fix up!!
-    # covariance/p**2 for off terms do 01 02
-    # make nz_PV smol
-    
-    return covariance
+    return covariance, cov_inv
 
 def get_dfactor(mu,k,recon,sigpar,sigperp):
     Dpar = np.outer(mu ** 2, k ** 2) * sigpar ** 2
@@ -551,12 +544,13 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
     # Loop over each k and mu value and compute the Fisher information for the cosmological parameters
     for i, kval in enumerate(k):
         for j, muval in enumerate(mu):
+            dfactorarr=np.ones((4,4))*Dfactor[j, i]**2
             fval,zval,hval,sigmaval=cosmo.f[iz],cosmo.z[iz],cosmo.h[iz],cosmo.sigma8[iz]
             vals=get_powerfx(kval,muval,pkval[i],kaiser[:,j],fval,zval,hval)
             derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[:,j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
             covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)  #(km/sec)**2 * vol
             #print(cov_inv[0,0],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)
-            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP) * Dfactor[j, i] ** 2 ##4,4,i,j # use own lines! # power spectrum units are volume!
+            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP) * dfactorarr ##4,4,i,j # use own lines! # power spectrum units are volume!
     return Shoal
 
 def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr, da, H):
@@ -568,7 +562,7 @@ def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr, da, H):
     covariance[2][2]=2*(puu+ps**2/vbar)**2
     covariance[0][1]=covariance[1][0]=2*(pgg+1/nbar)*pgu
     covariance[0][2]=covariance[2][0]=2*pgu*pgu
-    covariance[1][2]=covariance[2][1]=2*pgu*(puu+ps**2/vbar) # no./volume 0.2H0D km/sec
+    covariance[1][2]=covariance[2][1]=2*pgu*(puu+ps**2/vbar)
     identity = np.eye(3)
     cov_inv = dgesv(covariance, identity)[2]
     return covariance, cov_inv
