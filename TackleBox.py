@@ -544,13 +544,13 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
     # Loop over each k and mu value and compute the Fisher information for the cosmological parameters
     for i, kval in enumerate(k):
         for j, muval in enumerate(mu):
-            dfactorarr=np.ones((4,4))*Dfactor[j, i]**2
+            dfactorarr=np.ones((3,3))*Dfactor[j, i]**2
             fval,zval,hval,sigmaval=cosmo.f[iz],cosmo.z[iz],cosmo.h[iz],cosmo.sigma8[iz]
             vals=get_powerfx(kval,muval,pkval[i],kaiser[:,j],fval,zval,hval)
             derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[:,j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
             covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)  #(km/sec)**2 * vol
             #print(cov_inv[0,0],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)
-            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP) * dfactorarr ##4,4,i,j # use own lines! # power spectrum units are volume!
+            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ (cov_inv*dfactorarr) @ derP) ##4,4,i,j # use own lines! # power spectrum units are volume!
     return Shoal
 
 def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr, da, H):
