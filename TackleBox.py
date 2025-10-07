@@ -499,6 +499,8 @@ def newFish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True, GoFast
     if GoFast:
         # mu and k values for Simpson's rule
         muvec = np.linspace(0.0, 1.0, 100)
+        # need to int btw -1 and 1 for pgu bc odd powers and /2
+        # 4x pi^2 in denum.
         kvec = np.linspace(kmin, kmax, 400)
         # 2D integration
         ManyFish = simps(
@@ -550,7 +552,7 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
             derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[:,j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
             covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)  #(km/sec)**2 * vol
             #print(cov_inv[0,0],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)
-            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ (cov_inv*dfactorarr) @ derP) ##4,4,i,j # use own lines! # power spectrum units are volume!
+            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ (cov_inv*dfactorarr) @ derP)
     return Shoal
 
 def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr, da, H):
