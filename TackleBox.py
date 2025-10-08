@@ -77,9 +77,9 @@ def compute_deriv_alphas(cosmo, BAO_only=False):
     from scipy.interpolate import RegularGridInterpolator
 
     order = 4
-    nmu = 100
+    nmu = 200
     dk = 0.0001
-    mu = np.linspace(0.0, 1.0, nmu)
+    mu = np.linspace(-1.0, 1.0, nmu)
 
     pkarray = np.empty((2 * order + 1, len(cosmo.k)))
     for i in range(-order, order + 1):
@@ -516,8 +516,34 @@ def newFish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True, GoFast
 
     return ManyFish
 
-def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
+def newFishgu(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True, GoFast=True):
 
+    npop = np.shape(data.nbar)[0]
+    npk = int(npop * (npop + 1) / 2)
+
+    # Uses Simpson's rule or adaptive quadrature to integrate over all k and mu.
+    if GoFast:
+        # mu and k values for Simpson's rule
+        muvec = np.linspace(-1.0, 1.0, 200)
+        # need to int btw -1 and 1 for pgu bc odd powers and /2
+        # 4x pi^2 in denum.
+        kvec = np.linspace(kmin, kmax, 400)
+        # 2D integration
+        ManyFish = simps(
+            simps(
+                newCastNet(muvec, kvec, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only), x=muvec, axis=-1
+            ),
+            x=kvec,
+            axis=-1,
+        )
+
+    # Multiply by the necessary prefactors
+    ManyFish *= cosmo.volume[iz] / (4.0 * np.pi ** 2)
+
+    return ManyFish
+
+
+def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
     Shoal = np.empty((npop + 3, npop + 3, len(k), len(mu)))
     # Compute the kaiser factors for each galaxy sample at the redshift as a function of mu
     kaiser = (np.tile(data.bias[:, iz], (len(mu), 1)).T + cosmo.f[iz] * mu ** 2)
