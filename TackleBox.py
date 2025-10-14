@@ -413,7 +413,7 @@ def compute_full_deriv(npop, npk, kaiser, pk, pksmooth, mu, derPalpha, f, sigma8
 def get_powerfx(k, mu, pk, kaiser, f, z, H):
 
     # get aH
-    aH = 1/(1+z)*H
+    aH = 1/(1+z)*H # should evolve w redshift
 
     # compute values
     Pgg = kaiser**2*pk
@@ -436,7 +436,7 @@ def get_full_deriv(k, mu, pk, pksmooth, kaiser, f, z, H, derPalpha, sigma8, BAO_
     kparader = -k*mu**2
 
     # get aH
-    aH = 1/(1+z)*H
+    aH = 1/(1+z)*H # also evolving
 
     # wrt b
     derP[0][0]=2*kaiser*pk/sigma8
@@ -572,19 +572,20 @@ def newCastNet(mu, k, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only):
     # Loop over each k and mu value and compute the Fisher information for the cosmological parameters
     for i, kval in enumerate(k):
         for j, muval in enumerate(mu):
-            dfactorarr=np.ones((3,3))*Dfactor[j, i]**2
+            #dfactorarr=np.ones((3,3))*Dfactor[j, i]**2
             fval,zval,hval,sigmaval=cosmo.f[iz],cosmo.z[iz],cosmo.h[iz],cosmo.sigma8[iz]
             vals=get_powerfx(kval,muval,pkval[i],kaiser[:,j],fval,zval,hval)
             derP=get_full_deriv(kval,muval,pkval[i],pksmoothval[i],kaiser[:,j],fval,zval,hval,derPalphaval[:,i,j],sigmaval,BAO_only)
-            covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)  #(km/sec)**2 * vol
+            derP*=np.tile([Dfactor[j,i],Dfactor[j,i],Dfactor[j,i]],(4,1)).T #3x4
+            covP,cov_inv=get_inv_cov_un(vals[0],vals[1],vals[2],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],cosmo.h[0],zval)  #(km/sec)**2 * vol
             #print(cov_inv[0,0],data.nbar[0,iz],data.nbarz[0,iz],data.pverr[0,iz],cosmo.da[iz],hval)
-            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ (cov_inv*dfactorarr) @ derP)
+            Shoal[:, :, i, j] = kval ** 2 * (derP.T @ cov_inv @ derP)
     return Shoal
 
-def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr, da, H):
+def get_inv_cov_un(pgg, pgu, puu, nbar, vbar, pverr, da, H, z):
 
     covariance=np.zeros((3,3))
-    ps=pverr*da*H
+    ps=pverr*da*(1+z)*H 
     covariance[0][0]=2*(pgg+1/nbar)**2
     covariance[1][1]=(pgg+1/nbar)*(puu+ps**2/vbar)+pgu**2
     covariance[2][2]=2*(puu+ps**2/vbar)**2
