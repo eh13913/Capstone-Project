@@ -1,2 +1,2 @@
-# zmin	zmax	nz_BGS	        nz_PV	    bias_BGS    err_PV
-0	    0.1	   45775.08309     10000	    1.34    0.2
+# zmin      zmax        nz_BGS     nz_PV    bias_BGS    err_PV
+0.00        0.10        1165.0     96.2         1.34    0.2
