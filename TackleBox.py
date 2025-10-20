@@ -1,6 +1,6 @@
 import numpy as np
 from findiff import FinDiff
-from scipy.integrate import simps
+from scipy.integrate import simpson
 from scipy.interpolate import splrep, splev
 from scipy.linalg.lapack import dgesv
 from scipy.integrate import quad
@@ -142,8 +142,8 @@ def Fish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True, GoFast=Fa
         muvec = np.linspace(0.0, 1.0, 100)
         kvec = np.linspace(kmin, kmax, 400)
         # 2D integration
-        ManyFish = simps(
-            simps(
+        ManyFish = simpson(
+            simpson(
                 CastNet(muvec, kvec, iz, npop, npk, data, cosmo, recon, derPalpha, BAO_only), x=muvec, axis=-1
             ),
             x=kvec,
@@ -480,8 +480,8 @@ def newFish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True):
     kvec = np.linspace(kmin, kmax, 400)
 
     # 2D integration
-    ManyFish = simps(
-        simps(
+    ManyFish = simpson(
+        simpson(
             newCastNet(muvec, kvec, iz, data, cosmo, recon, derPalpha, BAO_only), x=muvec, axis=-1
         ),
         x=kvec,
