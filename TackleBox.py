@@ -477,7 +477,8 @@ def newFish(cosmo, kmin, kmax, data, iz, recon, derPalpha, BAO_only=True):
     # ONLY uses GoFast
     # mu and k values for Simpson's rule
     muvec = np.linspace(-1.0, 1.0, 200)
-    kvec = np.linspace(kmin, kmax, 400)
+    kvec = np.linspace(kmin[iz], kmax[iz], 400)
+    # kmin a function of redshift, needs to be a vector, for each iz use kmin[iz]
 
     # 2D integration
     ManyFish = simpson(

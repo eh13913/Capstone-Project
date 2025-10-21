@@ -102,11 +102,12 @@ class CosmoResults:
             self.sigma8,
             self.growth,
             self.r_d,
+            self.kmin,
         ) = self.run_camb(pardict, zlow, zhigh)
         self.Sigma_perp, self.Sigma_par = self.get_Sigmas(self.f, self.sigma8)
 
-        self.kmin = np.amax([float(pardict["kmin"]), self.k[0]])
-        self.kmax = float(pardict["kmax"])
+        #self.kmin = np.amax([float(pardict["kmin"]), self.k[0]])
+        self.kmax = np.repeat(float(pardict["kmax"]),len(zlow))
 
     def run_camb(self, pardict, zlow, zhigh):
 
@@ -208,13 +209,16 @@ class CosmoResults:
         r_d = results.get_derived_params()["rdrag"]
         f = fsigma8 / sigma8
         growth = sigma8 / results.get_sigma8()[-1]
+        rpar = rmax-rmin
+        rperp = np.sin(np.sqrt(area)/2)*2*rmax
+        kmin = 2*np.pi/(rperp**(2.0/3.0)*rpar**(1.0/3.0))
 
         pk_splines = [splrep(kin, pklin[i + 1]) for i in range(len(zin[1:]))]
         pksmooth_splines = [
             splrep(kin, self.smooth_hinton2017(kin, pklin[i + 1])) for i in range(len(zin[1:]))
         ]
 
-        return zmid, volume, kin, pk_splines, pksmooth_splines, da, hubble, f, sigma8, growth, r_d
+        return zmid, volume, kin, pk_splines, pksmooth_splines, da, hubble, f, sigma8, growth, r_d, kmin
 
     def get_Sigmas(self, f, sigma8):
         """ Compute the nonlinear degradation of the BAO feature in the perpendicular and parallel direction
