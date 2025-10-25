@@ -37,7 +37,7 @@ class InputData:
         import pandas as pd
 
         df = pd.read_csv(
-            pardict["inputfile"], delim_whitespace=True, dtype="float", skiprows=0, escapechar="#"
+            pardict["inputfile"], sep='\s+', dtype="float", skiprows=0, escapechar="#"
         )
 
         return df
